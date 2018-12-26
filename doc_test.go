@@ -49,7 +49,7 @@ func Example() {
 	// key2 got lock after about 600ms
 }
 
-func ExampleRW() {
+func ExampleRowLock_RLock() {
 	lock := rowlock.NewRowLock(rowlock.RWMutexNewLocker)
 	key1 := "key1"
 	key2 := "key2"
