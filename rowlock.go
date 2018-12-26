@@ -12,9 +12,24 @@ type NewLocker func() sync.Locker
 // It must be hashable.
 type Row interface{}
 
+// RWLocker is the abstracted interface of sync.RWMutex.
+type RWLocker interface {
+	sync.Locker
+
+	RLocker() sync.Locker
+}
+
+// Make sure that sync.RWMutex is compatible with RWLocker interface.
+var _ RWLocker = (*sync.RWMutex)(nil)
+
 // MutexNewLocker is a NewLocker using sync.Mutex.
 func MutexNewLocker() sync.Locker {
 	return new(sync.Mutex)
+}
+
+// RWMutexNewLocker is a NewLocker using sync.RWMutex.
+func RWMutexNewLocker() sync.Locker {
+	return new(sync.RWMutex)
 }
 
 // RowLock defines a set of locks.
@@ -50,6 +65,22 @@ func (rl *RowLock) Unlock(row Row) {
 	rl.getLocker(row).Unlock()
 }
 
+// RLock locks a row for read.
+//
+// It only works as expected when NewLocker specified in NewRowLock returns an
+// implementation of RWLocker. Otherwise, it's the same as Lock.
+func (rl *RowLock) RLock(row Row) {
+	rl.getRLocker(row).Lock()
+}
+
+// RUnlock unlocks a row for read.
+//
+// It only works as expected when NewLocker specified in NewRowLock returns an
+// implementation of RWLocker. Otherwise, it's the same as Unlock.
+func (rl *RowLock) RUnlock(row Row) {
+	rl.getRLocker(row).Unlock()
+}
+
 // getLocker returns the lock for the given row.
 //
 // If this is a new row,
@@ -61,4 +92,19 @@ func (rl *RowLock) getLocker(row Row) sync.Locker {
 		rl.lockerPool.Put(newLocker)
 	}
 	return locker.(sync.Locker)
+}
+
+// getRLocker returns the lock for read for the given row.
+//
+// If this is a new row,
+// a new locker will be created using the NewLocker specified in NewRowLock.
+//
+// If NewLocker specified in NewRowLock returns a locker that didn't implement
+// GetRLocker, the locker itself will be returned instead.
+func (rl *RowLock) getRLocker(row Row) sync.Locker {
+	locker := rl.getLocker(row)
+	if rlocker, ok := locker.(RWLocker); ok {
+		return rlocker.RLocker()
+	}
+	return locker
 }
