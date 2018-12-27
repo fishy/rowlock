@@ -36,6 +36,10 @@ func RWMutexNewLocker() sync.Locker {
 //
 // When you do Lock/Unlock operations, you don't do them on a global scale.
 // Instead, a Lock/Unlock operation is operated on a given row.
+//
+// If NewLocker returns an implementation of RWLocker in NewRowLock,
+// the RowLock can be locked separately for read in RLock and RUnlock functions.
+// Otherwise, RLock is the same as Lock and RUnlock is the same as Unlock.
 type RowLock struct {
 	locks      sync.Map
 	lockerPool sync.Pool
@@ -103,8 +107,8 @@ func (rl *RowLock) getLocker(row Row) sync.Locker {
 // GetRLocker, the locker itself will be returned instead.
 func (rl *RowLock) getRLocker(row Row) sync.Locker {
 	locker := rl.getLocker(row)
-	if rlocker, ok := locker.(RWLocker); ok {
-		return rlocker.RLocker()
+	if rwlocker, ok := locker.(RWLocker); ok {
+		return rwlocker.RLocker()
 	}
 	return locker
 }
