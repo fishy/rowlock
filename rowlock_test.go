@@ -1,6 +1,7 @@
 package rowlock_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -108,4 +109,54 @@ func TestUseNonRWForReadLock(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func BenchmarkLockUnlock(b *testing.B) {
+	var numRows = []int{10, 100, 1000}
+	var newLockerMap = map[string]rowlock.NewLocker{
+		"Mutex":   rowlock.MutexNewLocker,
+		"RWMutex": rowlock.RWMutexNewLocker,
+	}
+
+	for _, n := range numRows {
+		b.Run(
+			fmt.Sprintf("%d", n),
+			func(b *testing.B) {
+				rows := make([]int, n)
+				for i := 0; i < n; i++ {
+					rows[i] = i
+				}
+				for label, newLocker := range newLockerMap {
+					b.Run(
+						label,
+						func(b *testing.B) {
+							rl := rowlock.NewRowLock(newLocker)
+
+							b.Run(
+								"LockUnlock",
+								func(b *testing.B) {
+									for i := 0; i < b.N; i++ {
+										row := rows[i%n]
+										rl.Lock(row)
+										rl.Unlock(row)
+									}
+								},
+							)
+
+							b.Run(
+								"RLockRUnlock",
+								func(b *testing.B) {
+									for i := 0; i < b.N; i++ {
+										row := rows[i%n]
+										rl.RLock(row)
+										rl.RUnlock(row)
+									}
+								},
+							)
+						},
+					)
+				}
+			},
+		)
+	}
 }
