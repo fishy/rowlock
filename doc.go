@@ -12,4 +12,4 @@
 // If the locker returned by NewLocker didn't implement RLocker function defined
 // in RWLocker,
 // RLock will work the same as Lock and RUnlock will work the same as Unlock.
-package rowlock
+package rowlock // import "go.yhsif.com/rowlock"

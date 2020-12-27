@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fishy/rowlock"
+	"go.yhsif.com/rowlock"
 )
 
 func TestRowLock(t *testing.T) {
