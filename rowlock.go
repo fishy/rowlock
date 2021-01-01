@@ -2,6 +2,8 @@ package rowlock
 
 import (
 	"sync"
+
+	"go.yhsif.com/defaultdict"
 )
 
 // NewLocker defines a type of function that can be used to create a new Locker.
@@ -9,7 +11,8 @@ type NewLocker func() sync.Locker
 
 // Row is the type of a row.
 //
-// It must be hashable.
+// It must be comparable:
+// https://golang.org/ref/spec#Comparison_operators.
 type Row interface{}
 
 // RWLocker is the abstracted interface of sync.RWMutex.
@@ -41,18 +44,15 @@ func RWMutexNewLocker() sync.Locker {
 // the RowLock can be locked separately for read in RLock and RUnlock functions.
 // Otherwise, RLock is the same as Lock and RUnlock is the same as Unlock.
 type RowLock struct {
-	locks      sync.Map
-	lockerPool sync.Pool
+	d defaultdict.DefaultDict
 }
 
 // NewRowLock creates a new RowLock with the given NewLocker.
 func NewRowLock(f NewLocker) *RowLock {
 	return &RowLock{
-		lockerPool: sync.Pool{
-			New: func() interface{} {
-				return f()
-			},
-		},
+		d: defaultdict.New(func() interface{} {
+			return f()
+		}),
 	}
 }
 
@@ -90,12 +90,7 @@ func (rl *RowLock) RUnlock(row Row) {
 // If this is a new row,
 // a new locker will be created using the NewLocker specified in NewRowLock.
 func (rl *RowLock) getLocker(row Row) sync.Locker {
-	newLocker := rl.lockerPool.Get()
-	locker, loaded := rl.locks.LoadOrStore(row, newLocker)
-	if loaded {
-		rl.lockerPool.Put(newLocker)
-	}
-	return locker.(sync.Locker)
+	return rl.d.Get(row).(sync.Locker)
 }
 
 // getRLocker returns the lock for read for the given row.
