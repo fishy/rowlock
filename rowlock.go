@@ -13,7 +13,7 @@ type NewLocker func() sync.Locker
 //
 // It must be comparable:
 // https://golang.org/ref/spec#Comparison_operators.
-type Row interface{}
+type Row = defaultdict.Comparable
 
 // RWLocker is the abstracted interface of sync.RWMutex.
 type RWLocker interface {
@@ -44,13 +44,13 @@ func RWMutexNewLocker() sync.Locker {
 // the RowLock can be locked separately for read in RLock and RUnlock functions.
 // Otherwise, RLock is the same as Lock and RUnlock is the same as Unlock.
 type RowLock struct {
-	d defaultdict.DefaultDict
+	d defaultdict.Map
 }
 
 // NewRowLock creates a new RowLock with the given NewLocker.
 func NewRowLock(f NewLocker) *RowLock {
 	return &RowLock{
-		d: defaultdict.New(func() interface{} {
+		d: defaultdict.New(func() defaultdict.Pointer {
 			return f()
 		}),
 	}
