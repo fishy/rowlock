@@ -1,5 +1,5 @@
 module go.yhsif.com/rowlock
 
-go 1.15
+go 1.18
 
-require go.yhsif.com/defaultdict v0.1.0
+require go.yhsif.com/defaultdict v0.2.0

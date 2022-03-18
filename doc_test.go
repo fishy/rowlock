@@ -9,7 +9,7 @@ import (
 )
 
 func Example() {
-	lock := rowlock.NewRowLock(rowlock.MutexNewLocker)
+	lock := rowlock.NewRowLock[string](rowlock.MutexNewLocker)
 	key1 := "key1"
 	key2 := "key2"
 	round := time.Millisecond * 50
@@ -50,7 +50,7 @@ func Example() {
 }
 
 func ExampleRWMutexNewLocker() {
-	lock := rowlock.NewRowLock(rowlock.RWMutexNewLocker)
+	lock := rowlock.NewRowLock[string](rowlock.RWMutexNewLocker)
 	key1 := "key1"
 	key2 := "key2"
 	round := time.Millisecond * 50

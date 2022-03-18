@@ -14,7 +14,7 @@ func TestRowLock(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	lock := rowlock.NewRowLock(rowlock.MutexNewLocker)
+	lock := rowlock.NewRowLock[string](rowlock.MutexNewLocker)
 	key1 := "key1"
 	key2 := "key2"
 
@@ -65,7 +65,7 @@ func TestUseNonRWForReadLock(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	lock := rowlock.NewRowLock(rowlock.MutexNewLocker)
+	lock := rowlock.NewRowLock[string](rowlock.MutexNewLocker)
 	key1 := "key1"
 	key2 := "key2"
 
@@ -119,44 +119,34 @@ func BenchmarkLockUnlock(b *testing.B) {
 	}
 
 	for _, n := range numRows {
-		b.Run(
-			fmt.Sprintf("%d", n),
-			func(b *testing.B) {
-				rows := make([]int, n)
-				for i := 0; i < n; i++ {
-					rows[i] = i
-				}
-				for label, newLocker := range newLockerMap {
-					b.Run(
-						label,
-						func(b *testing.B) {
-							rl := rowlock.NewRowLock(newLocker)
+		b.Run(fmt.Sprintf("%d", n), func(b *testing.B) {
+			rows := make([]int, n)
+			for i := 0; i < n; i++ {
+				rows[i] = i
+			}
+			for label, newLocker := range newLockerMap {
+				b.Run(label, func(b *testing.B) {
+					rl := rowlock.NewRowLock[int](newLocker)
 
-							b.Run(
-								"LockUnlock",
-								func(b *testing.B) {
-									for i := 0; i < b.N; i++ {
-										row := rows[i%n]
-										rl.Lock(row)
-										rl.Unlock(row)
-									}
-								},
-							)
+					b.Run("LockUnlock", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							row := rows[i%n]
+							rl.Lock(row)
+							rl.Unlock(row)
+						}
+					})
 
-							b.Run(
-								"RLockRUnlock",
-								func(b *testing.B) {
-									for i := 0; i < b.N; i++ {
-										row := rows[i%n]
-										rl.RLock(row)
-										rl.RUnlock(row)
-									}
-								},
-							)
-						},
-					)
-				}
-			},
-		)
+					b.Run("RLockRUnlock", func(b *testing.B) {
+						b.ReportAllocs()
+						for i := 0; i < b.N; i++ {
+							row := rows[i%n]
+							rl.RLock(row)
+							rl.RUnlock(row)
+						}
+					})
+				})
+			}
+		})
 	}
 }

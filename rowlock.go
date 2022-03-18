@@ -9,12 +9,6 @@ import (
 // NewLocker defines a type of function that can be used to create a new Locker.
 type NewLocker func() sync.Locker
 
-// Row is the type of a row.
-//
-// It must be comparable:
-// https://golang.org/ref/spec#Comparison_operators.
-type Row = defaultdict.Comparable
-
 // RWLocker is the abstracted interface of sync.RWMutex.
 type RWLocker interface {
 	sync.Locker
@@ -43,16 +37,14 @@ func RWMutexNewLocker() sync.Locker {
 // If NewLocker returns an implementation of RWLocker in NewRowLock,
 // the RowLock can be locked separately for read in RLock and RUnlock functions.
 // Otherwise, RLock is the same as Lock and RUnlock is the same as Unlock.
-type RowLock struct {
-	d defaultdict.Map
+type RowLock[T comparable] struct {
+	d defaultdict.Map[T, sync.Locker]
 }
 
 // NewRowLock creates a new RowLock with the given NewLocker.
-func NewRowLock(f NewLocker) *RowLock {
-	return &RowLock{
-		d: defaultdict.New(func() defaultdict.Pointer {
-			return f()
-		}),
+func NewRowLock[T comparable](f NewLocker) *RowLock[T] {
+	return &RowLock[T]{
+		d: defaultdict.New[T](defaultdict.Generator[sync.Locker](f)),
 	}
 }
 
@@ -60,12 +52,12 @@ func NewRowLock(f NewLocker) *RowLock {
 //
 // If this is a new row,
 // a new locker will be created using the NewLocker specified in NewRowLock.
-func (rl *RowLock) Lock(row Row) {
+func (rl *RowLock[T]) Lock(row T) {
 	rl.getLocker(row).Lock()
 }
 
 // Unlock unlocks a row.
-func (rl *RowLock) Unlock(row Row) {
+func (rl *RowLock[T]) Unlock(row T) {
 	rl.getLocker(row).Unlock()
 }
 
@@ -73,7 +65,7 @@ func (rl *RowLock) Unlock(row Row) {
 //
 // It only works as expected when NewLocker specified in NewRowLock returns an
 // implementation of RWLocker. Otherwise, it's the same as Lock.
-func (rl *RowLock) RLock(row Row) {
+func (rl *RowLock[T]) RLock(row T) {
 	rl.getRLocker(row).Lock()
 }
 
@@ -81,7 +73,7 @@ func (rl *RowLock) RLock(row Row) {
 //
 // It only works as expected when NewLocker specified in NewRowLock returns an
 // implementation of RWLocker. Otherwise, it's the same as Unlock.
-func (rl *RowLock) RUnlock(row Row) {
+func (rl *RowLock[T]) RUnlock(row T) {
 	rl.getRLocker(row).Unlock()
 }
 
@@ -89,8 +81,8 @@ func (rl *RowLock) RUnlock(row Row) {
 //
 // If this is a new row,
 // a new locker will be created using the NewLocker specified in NewRowLock.
-func (rl *RowLock) getLocker(row Row) sync.Locker {
-	return rl.d.Get(row).(sync.Locker)
+func (rl *RowLock[T]) getLocker(row T) sync.Locker {
+	return rl.d.Get(row)
 }
 
 // getRLocker returns the lock for read for the given row.
@@ -100,7 +92,7 @@ func (rl *RowLock) getLocker(row Row) sync.Locker {
 //
 // If NewLocker specified in NewRowLock returns a locker that didn't implement
 // GetRLocker, the locker itself will be returned instead.
-func (rl *RowLock) getRLocker(row Row) sync.Locker {
+func (rl *RowLock[T]) getRLocker(row T) sync.Locker {
 	locker := rl.getLocker(row)
 	if rwlocker, ok := locker.(RWLocker); ok {
 		return rwlocker.RLocker()
